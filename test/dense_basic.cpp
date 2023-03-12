@@ -1,4 +1,3 @@
-
 #include "dense.h"
 #include "test.h"
 

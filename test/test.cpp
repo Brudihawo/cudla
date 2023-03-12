@@ -1,7 +1,7 @@
 #include "test.h"
 #include "dense.h"
-#include "dense_solve.c"
-#include "dense_basic.c"
+#include "dense_solve.cpp"
+#include "dense_basic.cpp"
 
 int main() {
   std::vector<TestResult> results;
