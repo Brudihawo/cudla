@@ -90,9 +90,10 @@ bool almost_equal(const cudla::dense::Mat<T> &a, const cudla::dense::Mat<T> &b,
 #define TEST_CASE(name) TEST_CASE_(name, __RELPATH__, __LINE__)
 
 #define TEST_CASE_(name, file, line)                                           \
-  bool(name)(auto out, auto err);                                              \
+  bool(name)(std::stringstream & out, std::stringstream & err);                \
   ADD_FUNC(name, file, line);                                                  \
-  bool(name)([[maybe_unused]] auto out, [[maybe_unused]] auto err)
+  bool(name)([[maybe_unused]] std::stringstream & out,                         \
+             [[maybe_unused]] std::stringstream & err)
 
 #define TEST_ASSERT(cond) TEST_ASSERT_(cond, __RELPATH__, __LINE__)
 #define TEST_ASSERT_(cond, file, line)                                         \
