@@ -3,9 +3,10 @@
 #include "permutations.h"
 #include <algorithm>
 #include <functional>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 #include <memory>
+#include <optional>
 
 namespace cudla::dense {
 
@@ -250,8 +251,95 @@ public:
     // }
     // std::cout << "\n";
 
-    // TODO: i need to do something with the permutations here, but for some reason it seems to be correct???? Why?
+    // TODO: i need to do something with the permutations here, but for some
+    // reason it seems to be correct???? Why?
     return ret;
+  }
+
+  std::optional<util::RowPerms> cholesky_decomp_mut() {
+    util::RowPerms perms(rows_);
+    std::vector<T> cpybuf(cols_);
+
+    for (size_t i = 0; i < cols_ - 1; i++) {     // zeroing of i-th column
+      for (size_t n = i + 1; n < rows_; n++) {   // row n
+        for (size_t j = i + 1; j < cols_; j++) { // column j
+          if ((*this)[i, i] == 0.0) {            // pivot
+            size_t k = 0;
+            for (; (*this)[k, i] == 0.0; k++)
+              ;
+            // swap rows of a
+            this->swap_rows(i, k, cpybuf);
+
+            // increase permutation count and record permutation
+            perms.add_perm(i, k);
+          }
+          (*this)(n, j) -= (*this)[n, i] / (*this)[i, i] * (*this)[i, j];
+        }
+        (*this)(n, i) = -(*this)[n, i] / (*this)[i, i];
+      }
+    }
+
+    if (perms.n_swaps_ == 0) {
+      return std::nullopt;
+    }
+
+    return perms;
+  }
+
+  void row_permute(const util::RowPerms &perms) {
+    if (perms.n_swaps_ == 0)
+      return;
+
+    std::vector<T> cpybuf(cols_);
+
+    size_t performed_perms = 0;
+    for (size_t row = 0; row < rows_; row++) {
+      if (performed_perms == perms.n_swaps_)
+        break;
+
+      if (perms.order_[row] != row) {
+        this->swap_rows(row, perms.order_[row], cpybuf);
+        performed_perms++;
+      }
+    }
+  }
+
+  Mat<T> lu_forw_sub(const Mat<T> &b) {
+    cudla_assert_msg(rows_ == cols_, "Matrix needs to be square");
+    // TODO: assert tri_lo
+    cudla_assert_msg(cols_ == b.rows(),
+                     "Vector rows need to match matrix cols");
+
+    Mat<T> t(rows_, 1);
+    t(0, 0) = b[0, 0];
+    for (size_t i = 1; i < b.rows(); i++) {
+      t(i, 0) = b[i, 0];
+      for (size_t j = 0; j < i; j++) {
+        t(i, 0) += t(j, 0) * (*this)[i, j];
+      }
+    }
+
+    return t;
+  }
+
+  Mat<T> cholesky_decomp_solv(const Mat<T> &b) {
+    cudla_assert_msg(this->rows_ == this->cols_, "Matrix needs to be square");
+    cudla_assert_msg(b.cols_ == 1, "Target needs to be a vector");
+    cudla_assert_msg(b.rows_ == this->rows_,
+                     "Target rows need to match matrix dimensions");
+
+    // TODO: This is broken
+    std::vector<T> cpybuf(cols_);
+    auto b2 = b.clone();
+
+    const auto perms = this->cholesky_decomp_mut();
+    if (perms.has_value()) {
+      b2.row_permute(perms.value());
+    }
+
+    auto y = this->lu_forw_sub(b);
+
+    return this->back_sub(y);
   }
 
   void print(auto &out) const {

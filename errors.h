@@ -37,7 +37,7 @@ void print_backtrace(auto &ostream) {
   }
 
   for (uint16_t i = 1; i < size; ++i) {
-    ostream << strings[i] << "\n";
+    ostream << "#" << i-1 << ": " << strings[i] << "\n";
   }
 
   delete[] strings;
