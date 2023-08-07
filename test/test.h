@@ -33,7 +33,7 @@ struct TestResult {
   }
 };
 
-inline cudla::dense::Mat<double> random_mat(size_t rows, size_t cols) {
+inline cudla::dense::Mat random_mat(size_t rows, size_t cols) {
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_real_distribution<double> dis(0.0, 1.0);
@@ -41,9 +41,8 @@ inline cudla::dense::Mat<double> random_mat(size_t rows, size_t cols) {
   return {rows, cols, [&dis, &gen](size_t, size_t) { return dis(gen); }};
 }
 
-template <typename T>
-bool almost_equal(const cudla::dense::Mat<T> &a, const cudla::dense::Mat<T> &b,
-                  T errtol) {
+bool almost_equal(const cudla::dense::Mat &a, const cudla::dense::Mat &b,
+                  float errtol) {
   if (a.rows() != b.rows() || a.cols() != b.cols()) {
     return false;
   }
@@ -61,7 +60,7 @@ bool almost_equal(const cudla::dense::Mat<T> &a, const cudla::dense::Mat<T> &b,
 #define ROWS 15
 #define COLS 15
 
-#define ERRTOL 0.0001
+#define ERRTOL 0.0001f
 
 #define RED "\033[31;1m"
 #define GRN "\033[32;1m"

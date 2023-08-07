@@ -57,15 +57,15 @@ TEST_CASE(gauss_elim_with_perm) {
 
 TEST_CASE(back_sub) {
   static constexpr size_t dim = 3;
-  cudla::dense::Mat<double> A(dim, dim, 0.0);
+  cudla::dense::Mat A(dim, dim, 0.0);
   for (size_t i = 0; i < dim; ++i) {
-    A(i, i) = static_cast<double>(i + 1);
+    A(i, i) = static_cast<float>(i + 1);
   }
 
   for (size_t i = 1; i < dim; ++i) {
-    A(i - 1, i) = static_cast<double>(i + 1);
+    A(i - 1, i) = static_cast<float>(i + 1);
   }
-  cudla::dense::Mat<double> b(dim, 1, 1.0);
+  cudla::dense::Mat b(dim, 1, 1.0);
   auto x = A.back_sub(b);
 
   out << "A * x = b";

@@ -2,10 +2,10 @@
 #include "test.h"
 
 TEST_CASE(clone) {
-  cudla::dense::Mat<double> mat(ROWS, COLS);
+  cudla::dense::Mat mat(ROWS, COLS);
   for (size_t row = 0; row < ROWS; ++row) {
     for (size_t col = 0; col < ROWS; ++col) {
-      mat(row, col) = static_cast<double>(col + row * COLS);
+      mat(row, col) = static_cast<float>(col + row * COLS);
     }
   }
   auto mat2 = mat.clone();
@@ -16,10 +16,10 @@ TEST_CASE(clone) {
 }
 
 TEST_CASE(print) {
-  cudla::dense::Mat<double> mat(ROWS, COLS);
+  cudla::dense::Mat mat(ROWS, COLS);
   for (size_t row = 0; row < ROWS; ++row) {
     for (size_t col = 0; col < ROWS; ++col) {
-      mat(row, col) = static_cast<double>(col + row * COLS);
+      mat(row, col) = static_cast<float>(col + row * COLS);
     }
   }
   mat.print(out);
@@ -27,17 +27,17 @@ TEST_CASE(print) {
 }
 
 TEST_CASE(inv_mul_basic) {
-  cudla::dense::Mat<double> mat(ROWS, COLS, 0);
+  cudla::dense::Mat mat(ROWS, COLS, 0);
   for (size_t i = 0; i < ROWS; ++i) {
     mat(i, i) = 2;
   }
 
-  cudla::dense::Mat<double> inv(ROWS, COLS, 0);
+  cudla::dense::Mat inv(ROWS, COLS, 0);
   for (size_t i = 0; i < ROWS; ++i) {
     mat(i, i) = 0.5;
   }
 
-  cudla::dense::Mat<double> expected(ROWS, COLS, 0);
+  cudla::dense::Mat expected(ROWS, COLS, 0);
   for (size_t i = 0; i < ROWS; ++i) {
     mat(i, i) = 1;
   }
