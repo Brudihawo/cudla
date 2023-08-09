@@ -6,6 +6,7 @@ set(CMAKE_CXX_COMPILER /usr/bin/g++)
 
 add_library(cudla STATIC 
   ./src/dense.cpp
+  ./src/sparse.cpp
 )
 
 target_compile_options(
