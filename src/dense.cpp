@@ -50,6 +50,10 @@ Mat::Mat(size_t rows, size_t cols, std::function<float(size_t, size_t)> pred)
   }
 }
 
+Mat::~Mat() {
+  delete[] vals_;
+}
+
 Mat Mat::clone_empty() const { return Mat(rows_, cols_); }
 Mat Mat::clone() const {
   Mat ret(rows_, cols_);

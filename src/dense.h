@@ -39,6 +39,8 @@ public:
    */
   Mat(size_t rows, size_t cols, std::function<float(size_t, size_t)> pred);
 
+  ~Mat();
+
   Mat clone_empty() const;
   Mat clone() const;
 
@@ -97,7 +99,8 @@ public:
   }
   friend std::ostream &operator<<(std::ostream &stream, const Mat &mat);
 
-  friend cudla::dense::Vec operator*(const Mat& mat, const cudla::dense::Vec &vec);
+  friend cudla::dense::Vec operator*(const Mat &mat,
+                                     const cudla::dense::Vec &vec);
 };
 
 } // namespace cudla::dense
