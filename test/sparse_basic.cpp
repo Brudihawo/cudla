@@ -174,7 +174,6 @@ TEST_CASE(structure_eq_clone) {
 TEST_CASE(equality_clone) {
   Mat A = random_sparse(N_VALS, SIZE, SIZE);
   Mat B = A.clone();
-  out << " ";
 
   TEST_ASSERT_MSG(A == B, "Matrix is not equal to clone");
   return TEST_SUCCESS;
