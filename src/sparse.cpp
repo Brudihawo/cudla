@@ -9,10 +9,10 @@ std::optional<size_t> binary_search(const size_t *const arr, size_t size,
   if (size < 1)
     return std::nullopt;
   if (size == 1) {
-    if (val != arr[0])
-      return -1;
-    else
+    if (val == arr[0])
       return 0;
+    else
+      return std::nullopt;
   }
 
   size_t begin = 0;
@@ -46,7 +46,7 @@ std::optional<size_t> binary_search(const size_t *const arr, size_t size,
 }
 
 size_t Mat::col(size_t row, size_t col_idx) const {
-  if (row >= rows_ || col_idx >= cols_ || row_sizes_[row] <= col_idx) {
+  if (row >= rows_ || col_idx >= cols_ || col_idx >= row_sizes_[row]) {
     return NOT_PRESENT;
   }
 
@@ -87,7 +87,7 @@ size_t Mat::idx(size_t row, size_t col) const {
 
   const size_t row_start = row_starts_[row];
   const std::optional<size_t> col_present =
-      binary_search(&(col_pos_[row_start]), row_sizes_[row_start], col);
+      binary_search(&(col_pos_[row_start]), row_sizes_[row], col);
   return col_present.has_value() ? row_start + col_present.value()
                                  : NOT_PRESENT;
 }
@@ -149,7 +149,6 @@ Mat Mat::transposed() const {
 float Mat::operator[](size_t row, size_t col) const {
   const size_t index = idx(row, col);
   if (index != NOT_PRESENT) {
-    std::cout << index << std::endl;
     return vals_[index];
   }
   return 0.0f;
@@ -158,7 +157,8 @@ float Mat::operator[](size_t row, size_t col) const {
 float &Mat::operator()(size_t row, size_t col) {
   size_t index = idx(row, col);
   cudla_assert_msg(index != NOT_PRESENT,
-                   "can only return refernce to non-zero value in matrix");
+                   "can only return refernce to non-zero value in matrix. ",
+                   "Position (", row, ", ", col, ") is not filled.");
   return vals_[index];
 }
 
@@ -206,8 +206,7 @@ bool Mat::structure_eq(const Mat &other) const {
 }
 
 bool Mat::has_loc(size_t row, size_t col) const {
-  cudla_assert_msg((row <= this->rows_ || col <= this->cols_) ||
-                       (row > 0 || col > 0),
+  cudla_assert_msg((row < this->rows_ || col < this->cols_),
                    "Position out of bounds");
 
   // Check if row is present in matrix
@@ -219,10 +218,7 @@ bool Mat::has_loc(size_t row, size_t col) const {
   const std::optional<size_t> pos =
       binary_search(&this->col_pos_[row_start], this->row_sizes_[row], col);
 
-  if (pos.has_value()) {
-    return true;
-  }
-  return false;
+  return pos.has_value();
 }
 
 void Mat::init_start_arrs() {
@@ -280,8 +276,17 @@ Mat Mat::operator+(const Mat &o) const {
   cudla_assert_msg(cols_ == o.cols_ && rows_ == o.rows_,
                    "Size mismatch in matrix addition");
   Mat ret = this->addsub_alloc(o);
+  std::cout << "Ret: \n";
+  ret.print_shape(std::cout);
+
+  std::cout << "A: \n";
+  this->print_shape(std::cout);
+
+  std::cout << "B: \n";
+  o.print_shape(std::cout);
   for (size_t row = 0; row < ret.rows_; ++row) {
     for (size_t col_idx = 0; col_idx < ret.row_sizes_[row]; ++col_idx) {
+      std::cout << "(" << row << ", " << col_idx << ")\n";
       size_t col = ret.col(row, col_idx);
       cudla_assert_msg(col != NOT_PRESENT,
                        "tried to access column in matric addition");
@@ -366,10 +371,6 @@ Mat::Mat(size_t rows, size_t cols, std::vector<MPos> &pos,
       col_pos_[i] = pvs[i].pos.col;
       vals_[i] = pvs[i].val;
     }
-  }
-
-  for (size_t i = 0; i < cols_; ++i) {
-    std::cout << i << " -> " << col_sizes_[i] << "\n";
   }
 }
 

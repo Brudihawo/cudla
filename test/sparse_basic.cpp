@@ -5,24 +5,20 @@
 using Mat = cudla::sparse::Mat;
 
 #define SIZE 10
-#define N_VALS 1
+#define N_VALS 2
 
 TEST_CASE(test_add_random) {
   Mat A = random_sparse(N_VALS, SIZE, SIZE);
   Mat B = random_sparse(N_VALS, SIZE, SIZE);
 
-  A.print_shape(std::cout);
-  B.print_shape(std::cout);
-
   Mat target = A + B;
 
   for (size_t row = 0; row < SIZE; ++row) {
     for (size_t col = 0; col < SIZE; ++col) {
-      float t = target[row, col];
-      float a = A[row, col];
-      float b = B[row, col];
+      float actual = target[row, col];
+      float expected = A[row, col] + B[row, col];
 
-      TEST_ASSERT_MSG(t != a + b, "Matrix addition failed");
+      TEST_ASSERT_MSG(actual == expected, "Matrix addition failed");
     }
   }
   return TEST_SUCCESS;
@@ -36,11 +32,10 @@ TEST_CASE(test_sub_random) {
 
   for (size_t row = 0; row < SIZE; ++row) {
     for (size_t col = 0; col < SIZE; ++col) {
-      float t = target[row, col];
-      float a = A[row, col];
-      float b = B[row, col];
+      float actual = target[row, col];
+      float expected = A[row, col] - B[row, col];
 
-      TEST_ASSERT_MSG(t != a - b, "Matrix subtraction failed");
+      TEST_ASSERT_MSG(actual == expected, "Matrix addition failed");
     }
   }
   return TEST_SUCCESS;
@@ -58,8 +53,9 @@ TEST_CASE(test_scl_random) {
       float t = target[row, col];
       float a = A[row, col];
 
-      TEST_ASSERT_MSG(t != a * s, "Matrix addition failed");
+      TEST_ASSERT_MSG(t == a * s, "Matrix addition failed");
     }
   }
   return TEST_SUCCESS;
 }
+
