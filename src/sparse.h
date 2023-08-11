@@ -16,8 +16,8 @@ public:
    */
   Mat(size_t rows, size_t cols, size_t n_vals);
 
-  Mat(size_t rows, size_t cols, std::vector<MPos> &pos,
-      std::vector<float> &vals);
+  Mat(size_t rows, size_t cols, const std::vector<MPos> &pos,
+      const std::vector<float> &vals);
 
   /** @brief initialize empty matrix with given non-zero structure
    */
@@ -118,9 +118,9 @@ public:
     for (size_t row = 0; row < rows_; ++row) {
       for (size_t col = 0; col < cols_; ++col) {
         if (this->has_loc(row, col)) {
-          out << " * ";
+          out << "#";
         } else {
-          out << "   ";
+          out << " ";
         }
       }
       out << "\n";
@@ -149,7 +149,10 @@ private:
 
   void init_start_arrs();
   size_t col(size_t row, size_t col_idx) const;
+  size_t col_or_panic(size_t row, size_t col_idx) const;
   static constexpr size_t NOT_PRESENT = SIZE_MAX;
 };
+std::optional<size_t> binary_search(const size_t *const arr, size_t size,
+                                    size_t val);
 
 } // namespace cudla::sparse

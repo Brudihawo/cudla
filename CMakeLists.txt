@@ -45,13 +45,13 @@ target_link_libraries(test PRIVATE cudla)
 target_link_options(test PRIVATE -std=c++2b -stdlib=libc++ -rdynamic)
 
 if(CMAKE_BUILD_TYPE STREQUAL Debug)
-# target_compile_options(cudla PRIVATE
-#   -fsanitize=undefined,memory
-# )
-# target_link_options(cudla PRIVATE
-#   -fsanitize=undefined,memory
-# )
-# target_link_options(test PRIVATE
-#   -fsanitize=undefined,memory
-# )
+target_compile_options(cudla PRIVATE
+  -fsanitize=undefined,address
+)
+target_link_options(cudla PRIVATE
+  -fsanitize=undefined,address
+)
+target_link_options(test PRIVATE
+  -fsanitize=undefined,address
+)
 endif()

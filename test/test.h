@@ -33,30 +33,6 @@ struct TestResult {
   }
 };
 
-inline cudla::dense::Mat random_mat(size_t rows, size_t cols) {
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_real_distribution<double> dis(0.0, 1.0);
-
-  return {rows, cols, [&dis, &gen](size_t, size_t) { return dis(gen); }};
-}
-
-bool almost_equal(const cudla::dense::Mat &a, const cudla::dense::Mat &b,
-                  float errtol) {
-  if (a.rows() != b.rows() || a.cols() != b.cols()) {
-    return false;
-  }
-
-  for (size_t row = 0; row < b.rows(); ++row) {
-    for (size_t col = 0; col < b.cols(); ++col) {
-      if (std::abs(a[row, col] - b[row, col]) > errtol) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
 #define ROWS 15
 #define COLS 15
 
@@ -104,7 +80,7 @@ bool almost_equal(const cudla::dense::Mat &a, const cudla::dense::Mat &b,
   } while (0)
 
 #define TEST_ASSERT_MSG(cond, msg)                                             \
-  TEST_ASSERT_MSG_(cond, msg, __RELPATH__, __LINE__)
+  TEST_ASSERT_MSG_((cond), (msg), __RELPATH__, __LINE__)
 #define TEST_ASSERT_MSG_(cond, msg, file, line)                                \
   do {                                                                         \
     if (!(cond)) {                                                             \

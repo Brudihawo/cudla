@@ -6,49 +6,41 @@
 namespace cudla::sparse {
 std::optional<size_t> binary_search(const size_t *const arr, size_t size,
                                     size_t val) {
-  if (size < 1)
+  if (size == 0)
     return std::nullopt;
-  if (size == 1) {
-    if (val == arr[0])
-      return 0;
-    else
-      return std::nullopt;
-  }
+  if (size == 1)
+    return arr[0] == val ? std::optional<size_t>(0) : std::nullopt;
 
-  size_t begin = 0;
-  size_t end = size;
-  size_t cur_sz = size;
+  size_t l = 0;
+  size_t r = size - 1;
 
-  while (cur_sz > 0) {
-    cur_sz = end - begin;
-    const size_t mid_idx = begin + cur_sz / 2;
+  while (l <= r) {
+    const size_t mid_idx = (l + r) / 2;
     const size_t mid_val = arr[mid_idx];
-
-    if (val == mid_val)
+    if (mid_val < val) {
+      l = mid_idx + 1;
+    } else if (mid_val > val) {
+      if (mid_idx == 0)
+        return std::nullopt;
+      r = mid_idx - 1;
+    } else {
       return mid_idx;
-
-    const size_t ne = mid_idx - 1;
-    const size_t nb = mid_idx + 1;
-    const int cmp = val < mid_val;
-
-    // hopefully this is faster?
-    end = static_cast<size_t>(cmp) * ne + static_cast<size_t>(1 - cmp) * end;
-    begin =
-        static_cast<size_t>(cmp) * begin + static_cast<size_t>(1 - cmp) * nb;
-    // if (val < mid_val) {
-    //   end = mid_idx - 1;
-    // } else {
-    //   begin = mid_idx + 1;
-    // }
+    }
   }
 
   return std::nullopt;
 }
 
 size_t Mat::col(size_t row, size_t col_idx) const {
-  if (row >= rows_ || col_idx >= cols_ || col_idx >= row_sizes_[row]) {
+  if (row >= rows_ || col_idx >= row_sizes_[row]) {
     return NOT_PRESENT;
   }
+
+  return col_pos_[row_starts_[row] + col_idx];
+}
+
+size_t Mat::col_or_panic(size_t row, size_t col_idx) const {
+  cudla_assert(row < rows_ || col_idx < row_sizes_[row]);
 
   return col_pos_[row_starts_[row] + col_idx];
 }
@@ -94,8 +86,6 @@ size_t Mat::idx(size_t row, size_t col) const {
 
 /**
  * @brief return transposed version of self
- *
- * @return self transposed version of self
  */
 Mat Mat::transposed() const {
   Mat ret(cols_, rows_, n_vals_);
@@ -106,45 +96,35 @@ Mat Mat::transposed() const {
   std::copy(col_sizes_, col_sizes_ + cols_, ret.row_sizes_);
   std::copy(row_sizes_, row_sizes_ + rows_, ret.col_sizes_);
 
-  std::copy(col_pos_, col_pos_ + n_vals_, ret.col_pos_);
-
   std::vector<MPos> r_pos(n_vals_);
   size_t idx = 0;
   for (size_t row = 0; row < rows_; ++row) {
-    for (size_t col_idx = 0; col_idx < row_sizes_[col_idx]; ++col_idx) {
-      const size_t col = this->col(row, col_idx);
-      r_pos[idx] = {row, col};
+    for (size_t col_idx = 0; col_idx < row_sizes_[row]; ++col_idx) {
+      const size_t col = this->col_or_panic(row, col_idx);
+      r_pos[idx] = {col, row};
+      ++idx;
     }
   }
 
   std::sort(r_pos.begin(), r_pos.end(),
-            [](const MPos &a, const MPos &b) -> bool {
-              if (a.row == b.row) {
-                return a.col > b.col;
+            [](const MPos &l, const MPos &r) -> bool {
+              if (l.row == r.row) {
+                return l.col < r.col;
               }
-              return a.row > b.row;
+              return l.row < r.row;
             });
 
-  size_t i = 0;
+  for (size_t i = 0; i < n_vals_; ++i) {
+    ret.col_pos_[i] = r_pos[i].col;
+  }
+
   for (const auto &pos : r_pos) {
-    ret.col_pos_[i++] = pos.col;
     ret(pos.row, pos.col) = (*this)[pos.col, pos.row];
   }
   return ret;
 }
 
-// // TODO: implement transpose_in_place
-// float SM_at(const SMatF A, long row, long col) {
-//   if (row >= A.nrows || col >= A.ncols) {
-//     log_err(
-//         "Position (%ld, %ld) is out of bounds for matrix of size (%ld,
-//         %ld)", row, col, A.nrows, A.ncols);
-//     exit(EXIT_FAILURE);
-//   }
-
-//   long idx = SM_idx(A, row, col);
-//   return idx == SM_NOT_PRESENT ? 0.0f : A.vals[idx];
-// }
+// TODO: implement transpose_in_place
 
 float Mat::operator[](size_t row, size_t col) const {
   const size_t index = idx(row, col);
@@ -244,8 +224,8 @@ Mat Mat::addsub_alloc(const Mat &other) const {
   }
 
   size_t vals = 0;
-  for (size_t col = 0; col < other.cols_; ++col) {
-    for (size_t row = 0; row < this->rows_; ++row) {
+  for (size_t row = 0; row < this->rows_; ++row) {
+    for (size_t col = 0; col < other.cols_; ++col) {
       if (this->has_loc(row, col) || other.has_loc(row, col)) {
         ++vals;
       }
@@ -276,20 +256,11 @@ Mat Mat::operator+(const Mat &o) const {
   cudla_assert_msg(cols_ == o.cols_ && rows_ == o.rows_,
                    "Size mismatch in matrix addition");
   Mat ret = this->addsub_alloc(o);
-  std::cout << "Ret: \n";
-  ret.print_shape(std::cout);
-
-  std::cout << "A: \n";
-  this->print_shape(std::cout);
-
-  std::cout << "B: \n";
-  o.print_shape(std::cout);
   for (size_t row = 0; row < ret.rows_; ++row) {
     for (size_t col_idx = 0; col_idx < ret.row_sizes_[row]; ++col_idx) {
-      std::cout << "(" << row << ", " << col_idx << ")\n";
       size_t col = ret.col(row, col_idx);
       cudla_assert_msg(col != NOT_PRESENT,
-                       "tried to access column in matric addition");
+                       "tried to access column in matrix addition");
       ret(row, col) = this->operator[](row, col) + o[row, col];
     }
   }
@@ -304,7 +275,7 @@ Mat Mat::operator-(const Mat &o) const {
     for (size_t col_idx = 0; col_idx < ret.row_sizes_[row]; ++col_idx) {
       const std::optional<size_t> maybe_col = ret.col(row, col_idx);
       cudla_assert_msg(maybe_col.has_value(),
-                       "tried to access column in matric addition");
+                       "tried to access column in matrix addition");
       const size_t col = maybe_col.value();
       ret(row, col) = this->operator[](row, col) - o[row, col];
     }
@@ -327,8 +298,8 @@ void Mat::operator*=(float r) {
 // std::vector<size_t> col_pos_;
 // std::vector<size_t> row_starts_;
 // std::vector<size_t> row_sizes_;
-Mat::Mat(size_t rows, size_t cols, std::vector<MPos> &pos,
-         std::vector<float> &vals)
+Mat::Mat(size_t rows, size_t cols, const std::vector<MPos> &pos,
+         const std::vector<float> &vals)
     : rows_(rows), cols_(cols), n_vals_(vals.size()),
       vals_(new float[vals.size()]), col_pos_(new size_t[vals.size()]),
       col_sizes_(new size_t[cols]), col_starts_(new size_t[cols]),
@@ -361,10 +332,10 @@ Mat::Mat(size_t rows, size_t cols, std::vector<MPos> &pos,
       MPos rhs = r.pos;
 
       if (lhs.row == rhs.row) {
-        return lhs.col > rhs.col;
+        return lhs.col < rhs.col;
       }
 
-      return lhs.row > rhs.row;
+      return lhs.row < rhs.row;
     });
 
     for (size_t i = 0; i < vals.size(); ++i) {
@@ -404,22 +375,6 @@ Mat Mat::prod_alloc(const Mat &other) const {
                    "Size mismatch, needs this->cols_ == other.rows_.");
 
   size_t tmp_buf_init_cap = (this->n_vals_ + other.n_vals_) * 2;
-
-  // Mat ret = {
-  //     .nrows = this->rows_,
-  //     .ncols = other.cols_,
-  //     .nvals = 0, // tbd
-
-  //     .col_sizes = calloc(other.cols_, sizeof(long)),
-  //     .col_starts = calloc(other.cols_, sizeof(long)),
-  //     .col_pos = NULL,
-  //     .vals = NULL,
-  //     .row_starts = calloc(A.nrows, sizeof(long)),
-  //     .row_sizes = calloc(A.nrows, sizeof(long)),
-  // };
-
-  // ret.col_sizes_.reserve(other.cols_);
-  // ret.col_sizes_.reserve(other.cols_);
 
   size_t rows = this->rows_;
   size_t cols = other.cols_;

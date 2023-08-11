@@ -1,13 +1,14 @@
 #include "dense.h"
 #include "test.h"
+#include "test_util.h"
 
 TEST_CASE(gauss_elim) {
   using Mat = cudla::dense::Mat;
-  Mat base = random_mat(ROWS, COLS);
+  Mat base = random_dense(ROWS, COLS);
   Mat A = base * base.transposed();
   Mat A2 = A.clone();
 
-  const Mat t = random_mat(ROWS, 1);
+  const Mat t = random_dense(ROWS, 1);
   const Mat res = A2.gauss_elim_mut(t);
 
   Mat actual = A * res;
@@ -20,14 +21,14 @@ TEST_CASE(gauss_elim) {
 }
 
 TEST_CASE(gauss_elim_with_perm) {
-  auto base = random_mat(ROWS, COLS);
+  auto base = random_dense(ROWS, COLS);
   auto A = base * base.transposed();
   for (size_t i = 0; i < A.rows(); ++i) {
     A(i, i) = 0;
   }
   auto A2 = A.clone();
 
-  const auto t = random_mat(ROWS, 1);
+  const auto t = random_dense(ROWS, 1);
   out << "Before\n";
   out << "A\n";
   out << A << "\n";
@@ -80,11 +81,11 @@ TEST_CASE(back_sub) {
 }
 
 TEST_CASE(lu_solv_normal) {
-  auto base = random_mat(ROWS, COLS);
+  auto base = random_dense(ROWS, COLS);
   auto A = base * base.transposed();
 
   auto A2 = A.clone();
-  const auto t = random_mat(ROWS, 1);
+  const auto t = random_dense(ROWS, 1);
 
   auto res = A.cholesky_decomp_solv(t);
   auto actual = A2 * res;
