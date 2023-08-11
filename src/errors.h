@@ -14,13 +14,14 @@
 #endif
 
 #ifdef ASSERT_FILE_LOCS
-#define cudla_assert_msg(expr, msg)                                            \
+#define cudla_assert_msg(expr, ...)                                            \
   do {                                                                         \
     if (!(expr)) {                                                             \
       CUDLA_ERR_OSTREAM << __FILE__ << ":" << __LINE__ << ": ";                \
     }                                                                          \
-    cudla_assert_msg_(expr, msg);                                              \
+    cudla_assert_msg_(expr, __VA_ARGS__);                                      \
   } while (0)
+
 #define cudla_assert(expr)                                                     \
   do {                                                                         \
     if (!(expr)) {                                                             \
@@ -33,11 +34,12 @@
 #define cudla_assert(expr) cudla_assert_(expr)
 #endif
 
-#define cudla_assert_msg_(expr, msg)                                           \
+#define cudla_assert_msg_(expr, ...)                                           \
   do {                                                                         \
     if (!(expr)) {                                                             \
-      CUDLA_ERR_OSTREAM << "CudLA assertion failed: '" << #expr << ": '"       \
-                        << msg << "''. Call stack: \n";                        \
+      CUDLA_ERR_OSTREAM << "CudLA assertion failed: '" << #expr << ": '";      \
+      cudla::err::log(CUDLA_ERR_OSTREAM, __VA_ARGS__);                         \
+      CUDLA_ERR_OSTREAM << "'. Call stack: \n";                               \
       cudla::err::print_backtrace(CUDLA_ERR_OSTREAM);                          \
       exit(EXIT_FAILURE);                                                      \
     }                                                                          \
@@ -108,5 +110,9 @@ void print_backtrace(auto &stream) {
   }
 
   delete[] strings;
+}
+
+template <typename... Args> void log(auto &stream, Args &&...args) {
+  (stream << ... << args);
 }
 } // namespace cudla::err
