@@ -93,7 +93,7 @@ void print_backtrace(auto &stream) {
                 std::ostream_iterator<char>(stream));
     } else {
       stream << demangled;
-      delete[] demangled;
+      std::free((void*)demangled);
     }
 
     stream << " ";
@@ -109,7 +109,7 @@ void print_backtrace(auto &stream) {
     stream << "\n";
   }
 
-  delete[] strings;
+  free(strings);
 }
 
 template <typename... Args> void log(auto &stream, Args &&...args) {
