@@ -129,7 +129,6 @@ public:
 
   friend std::ostream &operator<<(std::ostream &stream, const Mat &mat);
 
-private:
   size_t rows_ = 0, cols_ = 0;
   size_t n_vals_;
 

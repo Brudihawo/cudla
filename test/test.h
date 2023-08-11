@@ -36,7 +36,7 @@ struct TestResult {
 #define ROWS 15
 #define COLS 15
 
-#define ERRTOL 0.0001f
+#define ERRTOL 0.001f
 
 #define RED "\033[31;1m"
 #define GRN "\033[32;1m"

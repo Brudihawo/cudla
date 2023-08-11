@@ -136,10 +136,6 @@ TEST_CASE(test_transpose) {
   Mat A = random_sparse(N_VALS, SIZE, SIZE);
   Mat B = A.transposed();
 
-  A.print_shape(std::cout);
-  std::cout << "=========================\n";
-  B.print_shape(std::cout);
-
   for (size_t col = 0; col < A.cols(); ++col) {
     for (size_t row = 0; row < A.rows(); ++row) {
       if (A.has_loc(row, col)) {
@@ -150,5 +146,36 @@ TEST_CASE(test_transpose) {
       TEST_ASSERT_MSG(a == b, "Matrix transpose failed");
     }
   }
+  return TEST_SUCCESS;
+}
+
+TEST_CASE(structure_equality_self) {
+  Mat A = random_sparse(N_VALS, SIZE, SIZE);
+  TEST_ASSERT_MSG(A.structure_eq(A), "Matrix structure is not equal to self");
+  return TEST_SUCCESS;
+}
+
+TEST_CASE(equality_self) {
+  Mat A = random_sparse(N_VALS, SIZE, SIZE);
+  TEST_ASSERT_MSG(A == A, "Matrix is not equal to self");
+  return TEST_SUCCESS;
+}
+
+TEST_CASE(structure_eq_clone) {
+  Mat A = random_sparse(N_VALS, SIZE, SIZE);
+  A.print_shape(err);
+  err << "====================================\n";
+  Mat B = A.clone();
+  B.print_shape(err);
+  TEST_ASSERT_MSG(A.structure_eq(B), "Matrix strucure is not equal to clone");
+  return TEST_SUCCESS;
+}
+
+TEST_CASE(equality_clone) {
+  Mat A = random_sparse(N_VALS, SIZE, SIZE);
+  Mat B = A.clone();
+  out << " ";
+
+  TEST_ASSERT_MSG(A == B, "Matrix is not equal to clone");
   return TEST_SUCCESS;
 }

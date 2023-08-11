@@ -54,9 +54,9 @@ Mat::Mat(size_t rows, size_t cols, size_t n_vals)
 Mat Mat::clone_empty() const {
   Mat ret(rows_, cols_, n_vals_);
 
+  std::copy(col_pos_, col_pos_ + n_vals_, ret.col_pos_);
   std::copy(col_sizes_, col_sizes_ + cols_, ret.col_sizes_);
   std::copy(col_starts_, col_starts_ + cols_, ret.col_starts_);
-  std::copy(col_pos_, col_pos_ + n_vals_, ret.col_pos_);
   std::copy(row_starts_, row_starts_ + rows_, ret.row_starts_);
   std::copy(row_sizes_, row_sizes_ + rows_, ret.row_sizes_);
   return ret;
@@ -143,34 +143,36 @@ float &Mat::operator()(size_t row, size_t col) {
 }
 
 bool Mat::operator==(const Mat &o) const {
-  if (o.rows_ != rows_ || o.cols_ != cols_) {
+  // compare structure / short circuit
+  if (!this->structure_eq(o))
     return false;
-  }
 
-  for (size_t i = 0; i < rows_ * cols_; ++i) {
-    if (o.vals_[i] != vals_[i]) {
-      return false;
-    }
-  }
+  // compare values
+  if (std::memcmp(vals_, o.vals_, n_vals_ * sizeof(float)) != 0)
+    return false;
+
+  // if non-zero structure and values are equal, A and B are equal
   return true;
 }
-
-// TODO: we dont want this to exist
 
 bool Mat::structure_eq(const Mat &other) const {
   // TODO: I think this can be optimized. I dont think we have to do all these
   // checks.
-  if (this->cols_ != other.cols_ || this->rows_ != other.rows_ ||
-      this->vals_ != other.vals_)
+  if (this->cols_ != other.cols_ || 
+      this->rows_ != other.rows_ ||
+      this->n_vals_ != other.n_vals_)
     return false;
 
-  if (this->row_sizes_ != other.row_sizes_) {
+  if (std::memcmp(this->row_sizes_, other.row_sizes_,
+                  this->rows_ * sizeof(size_t)) != 0) {
     return false;
   }
-  if (this->row_starts_ != other.row_starts_) {
+  if (std::memcmp(this->row_starts_, other.row_starts_,
+                  this->rows_ * sizeof(size_t)) != 0) {
     return false;
   }
-  if (this->col_pos_ != other.col_pos_) {
+  if (std::memcmp(this->col_pos_, other.col_pos_,
+                  this->n_vals_ * sizeof(size_t)) != 0) {
     return false;
   }
 
