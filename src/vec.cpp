@@ -1,30 +1,3 @@
-
-// struct Vec {
-//   float *data;
-//   size_t cols;
-
-//   Vec(size_t N);
-//   Vec(size_t N, std::vector<float> &vals);
-//   Vec(size_t N, std::function<float(size_t)> pred);
-
-//   Vec operator-(float s) const;
-//   Vec operator-=(float s);
-
-//   Vec operator-(const Vec &o) const;
-//   Vec operator-=(const Vec &o);
-
-//   Vec operator+(float s) const;
-//   Vec operator+=(float s);
-
-//   Vec operator+(const Vec &o) const;
-//   Vec operator+=(const Vec &o);
-
-//   Vec operator*(const cudla::dense::Mat &o);
-//   Vec operator*(const cudla::sparse::Mat &o);
-
-//   float dot(const Vec& o) const;
-// };
-
 #include "vec.h"
 #include "errors.h"
 #include <cstddef>
