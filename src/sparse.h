@@ -1,30 +1,46 @@
+#pragma once
 #include "errors.h"
 #include "permutations.h"
+#include <iomanip>
 #include <optional>
 #include <vector>
 
 namespace cudla::sparse {
-
-class Mat;
-
-// template <typename T, size_t rows, size_t cols>
-// concept CompatibleMatrix = requires () {}
+struct MPos {
+  size_t row, col;
+};
 
 class Mat {
 public:
+  /** @brief initialize empty matrix
+   */
   Mat(size_t rows, size_t cols, size_t n_vals);
 
+  Mat(size_t rows, size_t cols, std::vector<MPos> &pos,
+      std::vector<float> &vals);
+
+  /** @brief initialize empty matrix with given non-zero structure
+   */
   Mat(size_t nvals, std::vector<size_t> row_sizes,
       std::vector<size_t> col_sizes, std::vector<size_t> row_starts,
       std::vector<size_t> col_starts, std::vector<size_t> col_pos);
+
+  ~Mat();
+
+  // TODO: implement rest of the constructors from C version of la
+
+  /** @brief clone matrix structure but not it's values
+   */
   Mat clone_empty() const;
 
+  /** @brief clone matrix structure and values
+   */
   Mat clone() const;
 
   size_t rows() const;
   size_t cols() const;
 
-  std::optional<size_t> idx(size_t row, size_t col) const;
+  size_t idx(size_t row, size_t col) const;
   bool has_loc(size_t row, size_t col) const;
 
   /**
@@ -38,65 +54,92 @@ public:
 
   // Accessors
   /** @brief Get copy of value at location
-   *
    */
   float operator[](size_t row, size_t col) const;
 
   /** @brief Get reference to value at location
-   *
    */
   float &operator()(size_t row, size_t col);
 
-  bool operator==(const Mat &o);
-  Mat operator+(const Mat &o);
-  Mat operator-(const Mat &o);
-  Mat operator*(const Mat &o);
+  /** @brief elementwise equality with other matrix
+   */
+  bool operator==(const Mat &o) const;
 
+  /** @brief adds other matrix
+   *  @note this may change the non-zero structure and thus needs to allocate
+   *  a new matrix
+   */
+  Mat operator+(const Mat &o) const;
+
+  /** @brief subtracts other matrix
+   *  @note this may change the non-zero structure and thus needs to allocate
+   *  a new matrix
+   */
+  Mat operator-(const Mat &o) const;
+
+  /** @brief perform a matrix multiplication with o
+   *  @note this computes size requirements and allocates a return matrix.
+   *        For many matrix mutliplications requiring the same size, size
+   *        requirements should be calculated once and then repeatedly assigned
+   *        into a preallocated matrix
+   *
+   *        TODO: implement multiplication into preallocated
+   */
+  Mat operator*(const Mat &o) const;
+
+  /** @brief scale matrix elementwise by scalar
+   */
+  Mat operator*(float s) const;
+
+  /** @brief scale matrix by scalar inplace
+   */
   void operator*=(float);
 
-  bool structure_eq(const Mat &other) const;
-
-  Mat make_triu() const;
-
-  float det() const;
-
-  Mat back_sub(const Mat &b) const;
-
-  /**
-   * @brief solve the system of equations this * x = b
-   * this needs to be a square matrix and target needs to be a column vector
-   * this matrix is modified to a triangular upper matrix
-   *
-   * @param target right hand side of the system of equations
-   * @return x - solution to system of equations
+  /** @brief check if self and other have the same non-zero structure
    */
-  Mat gauss_elim_mut(const Mat &b);
-
-  std::optional<util::RowPerms> cholesky_decomp_mut();
-
-  void row_permute(const util::RowPerms &perms);
-
-  Mat lu_forw_sub(const Mat &b);
+  bool structure_eq(const Mat &other) const;
 
   Mat cholesky_decomp_solv(const Mat &b);
 
-  void print(auto &out) const;
+  void print(auto &out) const {
+    for (size_t row = 0; row < rows_; ++row) {
+      for (size_t col = 0; col < cols_; ++col) {
+        const float val = (*this)[row, col];
+        out << std::setw(8) << std::setprecision(3) << val;
+        if (col < cols_ - 1) {
+          out << ", ";
+        }
+      }
+      out << "\n";
+    }
+  }
+
+  void print_shape(auto &out) const {
+    for (size_t row = 0; row < rows_; ++row) {
+      for (size_t col = 0; col < cols_; ++col) {
+        if (this->has_loc(row, col)) {
+          out << " * ";
+        } else {
+          out << "   ";
+        }
+      }
+      out << "\n";
+    }
+  }
 
   friend std::ostream &operator<<(std::ostream &stream, const Mat &mat);
 
 private:
-  struct Pos {
-    size_t row, col;
-  };
-
   size_t rows_ = 0, cols_ = 0;
-  std::vector<float> vals_;
+  size_t n_vals_;
 
-  std::vector<size_t> col_sizes_;
-  std::vector<size_t> col_starts_;
-  std::vector<size_t> col_pos_;
-  std::vector<size_t> row_starts_;
-  std::vector<size_t> row_sizes_;
+  // TODO: manage memory by myself instead of using vector
+  float *vals_;        //< length: n_vals
+  size_t *col_pos_;    //< length: n_vals_
+  size_t *col_sizes_;  //< length: cols_
+  size_t *col_starts_; //< length: cols_
+  size_t *row_starts_; //< length: rows_
+  size_t *row_sizes_;  //< length: rows_
 
   // TODO: do i want a bounds-check here?
   inline bool row_empty(size_t row) const { return row_sizes_[row] == 0; }
@@ -105,7 +148,8 @@ private:
   Mat prod_alloc(const Mat &other) const;
 
   void init_start_arrs();
-  std::optional<size_t> col(size_t row, size_t col_idx) const;
+  size_t col(size_t row, size_t col_idx) const;
+  static constexpr size_t NOT_PRESENT = SIZE_MAX;
 };
 
 } // namespace cudla::sparse

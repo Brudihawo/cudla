@@ -2,14 +2,15 @@
 #include "test.h"
 
 TEST_CASE(gauss_elim) {
-  auto base = random_mat(ROWS, COLS);
-  auto A = base * base.transposed();
-  auto A2 = A.clone();
+  using Mat = cudla::dense::Mat;
+  Mat base = random_mat(ROWS, COLS);
+  Mat A = base * base.transposed();
+  Mat A2 = A.clone();
 
-  const auto t = random_mat(ROWS, 1);
-  const auto res = A2.gauss_elim_mut(t);
+  const Mat t = random_mat(ROWS, 1);
+  const Mat res = A2.gauss_elim_mut(t);
 
-  auto actual = A * res;
+  Mat actual = A * res;
 
   std::stringstream s;
   s << "expected: \n" << t << "\nactual: \n" << actual;

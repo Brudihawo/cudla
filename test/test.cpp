@@ -2,6 +2,7 @@
 #include "dense.h"
 #include "dense_solve.cpp"
 #include "dense_basic.cpp"
+#include "sparse_basic.cpp"
 
 int main() {
   std::vector<TestResult> results;

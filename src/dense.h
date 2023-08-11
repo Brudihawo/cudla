@@ -1,6 +1,7 @@
 #pragma once
 #include "errors.h"
 #include "permutations.h"
+#include "vec.h"
 #include <algorithm>
 #include <functional>
 #include <iomanip>
@@ -13,7 +14,7 @@ namespace cudla::dense {
 class Mat {
 private:
   size_t rows_ = 0, cols_ = 0;
-  std::vector<float> vals_;
+  float *vals_;
 
   size_t idx(size_t row, size_t col) const;
 
@@ -64,6 +65,8 @@ public:
   Mat operator-(const Mat &o);
   Mat operator*(const Mat &o);
 
+  cudla::dense::Vec operator*(const cudla::dense::Vec &o) const;
+
   Mat back_sub(const Mat &b) const;
 
   /**
@@ -93,6 +96,8 @@ public:
     }
   }
   friend std::ostream &operator<<(std::ostream &stream, const Mat &mat);
+
+  friend cudla::dense::Vec operator*(const Mat& mat, const cudla::dense::Vec &vec);
 };
 
 } // namespace cudla::dense

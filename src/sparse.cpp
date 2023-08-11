@@ -45,57 +45,51 @@ std::optional<size_t> binary_search(const size_t *const arr, size_t size,
   return std::nullopt;
 }
 
-std::optional<size_t> Mat::col(size_t row, size_t col_idx) const {
+size_t Mat::col(size_t row, size_t col_idx) const {
   if (row >= rows_ || col_idx >= cols_ || row_sizes_[row] <= col_idx) {
-    return std::nullopt;
+    return NOT_PRESENT;
   }
 
   return col_pos_[row_starts_[row] + col_idx];
 }
 
 Mat::Mat(size_t rows, size_t cols, size_t n_vals)
-    : rows_(rows), cols_(cols), vals_(n_vals), col_sizes_(cols),
-      col_starts_(cols), col_pos_(n_vals), row_starts_(rows), row_sizes_(rows) {
-}
+    : rows_(rows), cols_(cols), n_vals_(n_vals), vals_(new float[n_vals]),
+      col_pos_(new size_t[n_vals]), col_sizes_(new size_t[cols]),
+      col_starts_(new size_t[cols]), row_starts_(new size_t[rows]),
+      row_sizes_(new size_t[rows]) {}
 
 Mat Mat::clone_empty() const {
-  Mat ret(rows_, cols_, vals_.size());
+  Mat ret(rows_, cols_, n_vals_);
 
-  std::copy(col_sizes_.begin(), col_sizes_.end(), ret.col_sizes_.data());
-  std::copy(col_starts_.begin(), col_starts_.end(), ret.col_starts_.data());
-  std::copy(col_pos_.begin(), col_pos_.end(), ret.col_pos_.data());
-  std::copy(row_starts_.begin(), row_starts_.end(), ret.row_starts_.data());
-  std::copy(row_sizes_.begin(), row_sizes_.end(), ret.row_sizes_.data());
+  std::copy(col_sizes_, col_sizes_ + cols_, ret.col_sizes_);
+  std::copy(col_starts_, col_starts_ + cols_, ret.col_starts_);
+  std::copy(col_pos_, col_pos_ + n_vals_, ret.col_pos_);
+  std::copy(row_starts_, row_starts_ + rows_, ret.row_starts_);
+  std::copy(row_sizes_, row_sizes_ + rows_, ret.row_sizes_);
   return ret;
 }
 
 Mat Mat::clone() const {
   Mat ret = this->clone_empty();
-  std::copy(vals_.begin(), vals_.end(), ret.vals_.begin());
+  std::copy(vals_, vals_ + n_vals_, ret.vals_);
   return ret;
 }
 
 size_t Mat::rows() const { return rows_; }
 size_t Mat::cols() const { return cols_; }
 
-std::optional<size_t> Mat::idx(size_t row, size_t col) const {
-  if (row >= rows_ || col >= rows_) {
-    // TODO: re-enable logging
-    // log_err("Position (%ld, %ld) out of bounds in Matrix of size (%ld,
-    // %ld).",
-    //         row, col, A.nrows, A.ncols);
-    exit(EXIT_FAILURE);
-  }
+size_t Mat::idx(size_t row, size_t col) const {
+  cudla_assert_msg((row <= rows_ || col <= rows_), "position out of bounds");
 
   if (col_sizes_[col] == 0)
-    return std::nullopt;
+    return NOT_PRESENT;
 
   const size_t row_start = row_starts_[row];
   const std::optional<size_t> col_present =
       binary_search(&(col_pos_[row_start]), row_sizes_[row_start], col);
-  return col_present.has_value()
-             ? std::optional{row_start + col_present.value()}
-             : std::nullopt;
+  return col_present.has_value() ? row_start + col_present.value()
+                                 : NOT_PRESENT;
 }
 
 /**
@@ -104,31 +98,32 @@ std::optional<size_t> Mat::idx(size_t row, size_t col) const {
  * @return self transposed version of self
  */
 Mat Mat::transposed() const {
-  Mat ret(cols_, rows_, vals_.size());
+  Mat ret(cols_, rows_, n_vals_);
 
-  std::copy(row_starts_.begin(), row_starts_.end(), ret.col_starts_.data());
-  std::copy(col_starts_.begin(), col_starts_.end(), ret.row_starts_.data());
+  std::copy(row_starts_, row_starts_ + rows_, ret.col_starts_);
+  std::copy(col_starts_, col_starts_ + cols_, ret.row_starts_);
 
-  std::copy(col_sizes_.begin(), col_sizes_.end(), ret.row_sizes_.data());
-  std::copy(row_sizes_.begin(), row_sizes_.end(), ret.col_sizes_.data());
+  std::copy(col_sizes_, col_sizes_ + cols_, ret.row_sizes_);
+  std::copy(row_sizes_, row_sizes_ + rows_, ret.col_sizes_);
 
-  std::copy(col_pos_.begin(), col_pos_.end(), ret.col_pos_.data());
+  std::copy(col_pos_, col_pos_ + n_vals_, ret.col_pos_);
 
-  std::vector<Pos> r_pos(vals_.size());
+  std::vector<MPos> r_pos(n_vals_);
   size_t idx = 0;
   for (size_t row = 0; row < rows_; ++row) {
     for (size_t col_idx = 0; col_idx < row_sizes_[col_idx]; ++col_idx) {
-      const size_t col = this->col(row, col_idx).value();
+      const size_t col = this->col(row, col_idx);
       r_pos[idx] = {row, col};
     }
   }
 
-  std::sort(r_pos.begin(), r_pos.end(), [](const Pos &a, const Pos &b) -> bool {
-    if (a.row == b.row) {
-      return a.col > b.col;
-    }
-    return a.row > b.row;
-  });
+  std::sort(r_pos.begin(), r_pos.end(),
+            [](const MPos &a, const MPos &b) -> bool {
+              if (a.row == b.row) {
+                return a.col > b.col;
+              }
+              return a.row > b.row;
+            });
 
   size_t i = 0;
   for (const auto &pos : r_pos) {
@@ -142,8 +137,8 @@ Mat Mat::transposed() const {
 // float SM_at(const SMatF A, long row, long col) {
 //   if (row >= A.nrows || col >= A.ncols) {
 //     log_err(
-//         "Position (%ld, %ld) is out of bounds for matrix of size (%ld, %ld)",
-//         row, col, A.nrows, A.ncols);
+//         "Position (%ld, %ld) is out of bounds for matrix of size (%ld,
+//         %ld)", row, col, A.nrows, A.ncols);
 //     exit(EXIT_FAILURE);
 //   }
 
@@ -152,21 +147,22 @@ Mat Mat::transposed() const {
 // }
 
 float Mat::operator[](size_t row, size_t col) const {
-  const std::optional<size_t> index = idx(row, col);
-  if (index.has_value()) {
-    return vals_[index.value()];
+  const size_t index = idx(row, col);
+  if (index != NOT_PRESENT) {
+    std::cout << index << std::endl;
+    return vals_[index];
   }
   return 0.0f;
 }
 
 float &Mat::operator()(size_t row, size_t col) {
-  const std::optional<size_t> index = idx(row, col);
-  cudla_assert_msg(index.has_value(),
+  size_t index = idx(row, col);
+  cudla_assert_msg(index != NOT_PRESENT,
                    "can only return refernce to non-zero value in matrix");
-  return vals_[index.value()];
+  return vals_[index];
 }
 
-bool Mat::operator==(const Mat &o) {
+bool Mat::operator==(const Mat &o) const {
   if (o.rows_ != rows_ || o.cols_ != cols_) {
     return false;
   }
@@ -180,37 +176,6 @@ bool Mat::operator==(const Mat &o) {
 }
 
 // TODO: we dont want this to exist
-Mat Mat::make_triu() const {
-  cudla_assert_msg(rows_ == cols_, "matrix needs to be square");
-  auto ret = this->clone();
-
-  for (size_t zero_col = 0; zero_col < cols_ - 1;
-       zero_col++) { // zeroing of i-th column
-    for (size_t row = zero_col + 1; row < rows_; row++) {   // row n
-      for (size_t col = zero_col + 1; col < cols_; col++) { // column j
-        ret(row, col) -=
-            ret[row, zero_col] / ret[zero_col, zero_col] * ret[zero_col, col];
-      }
-    }
-  }
-
-  for (size_t i = 1; i < rows_; i++) {
-    for (size_t j = 0; j < i; j++) {
-      ret(i, j) = 0.0;
-    }
-  }
-  return ret;
-}
-
-// this needs to work some other way
-float Mat::det() const {
-  auto tmp = this->make_triu();
-  float ret = 0.0;
-  for (size_t i = 0; i < rows_; ++i) {
-    ret *= tmp[i, i];
-  }
-  return ret;
-}
 
 bool Mat::structure_eq(const Mat &other) const {
   // TODO: I think this can be optimized. I dont think we have to do all these
@@ -241,12 +206,12 @@ bool Mat::structure_eq(const Mat &other) const {
 }
 
 bool Mat::has_loc(size_t row, size_t col) const {
-  cudla_assert_msg((row >= this->rows_ || col >= this->cols_) ||
-                       (row < 0 || col < 0),
+  cudla_assert_msg((row <= this->rows_ || col <= this->cols_) ||
+                       (row > 0 || col > 0),
                    "Position out of bounds");
 
   // Check if row is present in matrix
-  if (this->row_empty(row)) {
+  if (row_sizes_[row] == 0) {
     return false;
   }
 
@@ -293,6 +258,8 @@ Mat Mat::addsub_alloc(const Mat &other) const {
 
   // TODO: Optimize
   Mat ret(this->rows_, this->cols_, vals);
+  std::fill(ret.row_sizes_, ret.row_sizes_ + ret.rows_, 0);
+  std::fill(ret.col_sizes_, ret.col_sizes_ + ret.cols_, 0);
   size_t cur_idx = 0;
   for (size_t row = 0; row < this->rows_; ++row) {
     for (size_t col = 0; col < this->cols_; ++col) {
@@ -309,23 +276,22 @@ Mat Mat::addsub_alloc(const Mat &other) const {
   return ret;
 }
 
-Mat Mat::operator+(const Mat &o) {
+Mat Mat::operator+(const Mat &o) const {
   cudla_assert_msg(cols_ == o.cols_ && rows_ == o.rows_,
                    "Size mismatch in matrix addition");
   Mat ret = this->addsub_alloc(o);
   for (size_t row = 0; row < ret.rows_; ++row) {
     for (size_t col_idx = 0; col_idx < ret.row_sizes_[row]; ++col_idx) {
-      const std::optional<size_t> maybe_col = ret.col(row, col_idx);
-      cudla_assert_msg(maybe_col.has_value(),
+      size_t col = ret.col(row, col_idx);
+      cudla_assert_msg(col != NOT_PRESENT,
                        "tried to access column in matric addition");
-      const size_t col = maybe_col.value();
       ret(row, col) = this->operator[](row, col) + o[row, col];
     }
   }
   return ret;
 }
 
-Mat Mat::operator-(const Mat &o) {
+Mat Mat::operator-(const Mat &o) const {
   cudla_assert_msg(cols_ == o.cols_ && rows_ == o.rows_,
                    "Size mismatch in matrix subtraction");
   Mat ret = this->addsub_alloc(o);
@@ -342,7 +308,7 @@ Mat Mat::operator-(const Mat &o) {
 }
 
 void Mat::operator*=(float r) {
-  for (size_t i = 0; i < this->vals_.size(); ++i) {
+  for (size_t i = 0; i < this->n_vals_; ++i) {
     this->vals_[i] *= r;
   }
 }
@@ -356,19 +322,87 @@ void Mat::operator*=(float r) {
 // std::vector<size_t> col_pos_;
 // std::vector<size_t> row_starts_;
 // std::vector<size_t> row_sizes_;
+Mat::Mat(size_t rows, size_t cols, std::vector<MPos> &pos,
+         std::vector<float> &vals)
+    : rows_(rows), cols_(cols), n_vals_(vals.size()),
+      vals_(new float[vals.size()]), col_pos_(new size_t[vals.size()]),
+      col_sizes_(new size_t[cols]), col_starts_(new size_t[cols]),
+      row_starts_(new size_t[rows]), row_sizes_(new size_t[rows]) {
+  {
+    struct PosVal {
+      MPos pos;
+      float val;
+    };
+
+    std::fill(col_sizes_, col_sizes_ + cols_, 0);
+    std::fill(row_sizes_, row_sizes_ + rows_, 0);
+
+    cudla_assert(rows * cols >= vals.size());
+    cudla_assert(pos.size() == vals.size());
+
+    std::vector<PosVal> pvs;
+    for (size_t i = 0; i < vals.size(); ++i) {
+      cudla_assert(pos[i].row <= rows);
+      cudla_assert(pos[i].col <= cols);
+
+      ++row_sizes_[pos[i].row];
+      ++col_sizes_[pos[i].col];
+      pvs.push_back({pos[i], vals[i]});
+    }
+
+    this->init_start_arrs();
+    std::sort(pvs.begin(), pvs.end(), [](const PosVal &l, const PosVal &r) {
+      MPos lhs = l.pos;
+      MPos rhs = r.pos;
+
+      if (lhs.row == rhs.row) {
+        return lhs.col > rhs.col;
+      }
+
+      return lhs.row > rhs.row;
+    });
+
+    for (size_t i = 0; i < vals.size(); ++i) {
+      col_pos_[i] = pvs[i].pos.col;
+      vals_[i] = pvs[i].val;
+    }
+  }
+
+  for (size_t i = 0; i < cols_; ++i) {
+    std::cout << i << " -> " << col_sizes_[i] << "\n";
+  }
+}
 
 Mat::Mat(size_t nvals, std::vector<size_t> row_sizes,
          std::vector<size_t> col_sizes, std::vector<size_t> row_starts,
          std::vector<size_t> col_starts, std::vector<size_t> col_pos)
-    : rows_(row_sizes.size()), cols_(col_sizes.size()), vals_(nvals),
-      col_starts_(std::move(col_starts)), col_pos_(std::move(col_pos)),
-      row_starts_(std::move(row_starts)) {}
+    : rows_(row_sizes.size()), cols_(col_sizes.size()), n_vals_(nvals),
+      vals_(new float[nvals]), col_pos_(new size_t[col_pos.size()]),
+      col_sizes_(new size_t[col_sizes.size()]),
+      col_starts_(new size_t[col_starts.size()]),
+      row_starts_(new size_t[row_starts.size()]),
+      row_sizes_(new size_t[row_starts.size()]) {
+  std::copy(col_starts.begin(), col_starts.end(), col_starts_);
+  std::copy(col_pos.begin(), col_pos.end(), col_pos_);
+  std::copy(row_starts.begin(), row_starts.end(), row_starts_);
+  std::copy(row_sizes.begin(), row_sizes.end(), row_sizes_);
+  std::copy(col_sizes.begin(), col_sizes.end(), col_sizes_);
+}
+
+Mat::~Mat() {
+  delete[] vals_;
+  delete[] col_pos_;
+  delete[] col_sizes_;
+  delete[] col_starts_;
+  delete[] row_starts_;
+  delete[] row_sizes_;
+}
 
 Mat Mat::prod_alloc(const Mat &other) const {
   cudla_assert_msg(this->cols_ == other.rows_,
                    "Size mismatch, needs this->cols_ == other.rows_.");
 
-  size_t tmp_buf_init_cap = (this->vals_.size() + other.vals_.size()) * 2;
+  size_t tmp_buf_init_cap = (this->n_vals_ + other.n_vals_) * 2;
 
   // Mat ret = {
   //     .nrows = this->rows_,
@@ -403,9 +437,9 @@ Mat Mat::prod_alloc(const Mat &other) const {
       // TODO: Better error message
       cudla_assert_msg(maybe_a_col.has_value(), "column needs to exist");
       const size_t a_col = maybe_a_col.value();
-      // we get a column index in a and iterate over the corresponding column in
-      // B then, we set all increment all appropriate sizes this will cause more
-      // values per row than we actually have
+      // we get a column index in a and iterate over the corresponding column
+      // in B then, we set all increment all appropriate sizes this will cause
+      // more values per row than we actually have
       for (size_t t_col_i = 0; t_col_i < other.row_sizes_[a_col]; t_col_i++) {
         const std::optional<size_t> maybe_t_col = this->col(t_row, test_idx);
         // TODO: Better error message
@@ -503,11 +537,11 @@ Mat Mat::prod_alloc(const Mat &other) const {
   return ret;
 }
 
-Mat Mat::operator*(const Mat &o) {
+Mat Mat::operator*(const Mat &o) const {
   cudla_assert_msg(this->cols_ == o.rows_,
                    "Size mismatch in matrix multiplication");
   Mat ret = this->prod_alloc(o);
-  std::fill(ret.vals_.begin(), ret.vals_.end(), 0.0f);
+  std::fill(ret.vals_, ret.vals_ + n_vals_, 0.0f);
 
   for (size_t t_row = 0; t_row < ret.rows_; t_row++) { // rows in target
     for (size_t a_col_i = 0; a_col_i < this->row_sizes_[t_row]; a_col_i++) {
@@ -532,189 +566,16 @@ Mat Mat::operator*(const Mat &o) {
   return ret;
 }
 
-Mat<T> back_sub(const Mat<T> &b) const {
-  cudla_assert_msg(rows_ == cols_, "this needs to be a square matrix");
-  cudla_assert_msg(b.cols() == 1, "b needs to be a column vector");
-  cudla_assert_msg(b.rows() == cols_, "size mismatch");
-  // TODO: somehow assert (if I want that) that this mat is tri-up
-
-  auto t = b.clone_empty();
-
-  t(t.rows() - 1, 0) = b[b.rows() - 1, 0] / (*this)[rows_ - 1, cols_ - 1];
-
-  for (size_t i = b.rows() - 2; i + 1 > 0; --i) { // i + 1 > 0 to stop underflow
-    t(i, 0) = b[i, 0];
-    for (size_t j = i + 1; j < b.rows(); ++j) {
-      t(i, 0) -= t[j, 0] * (*this)[i, j];
-    }
-    t(i, 0) /= (*this)[i, i];
+Mat Mat::operator*(float s) const {
+  Mat ret = this->clone();
+  for (size_t i = 0; i < ret.n_vals_; ++i) {
+    ret.vals_[i] *= s;
   }
-  return t;
-}
-
-/**
- * @brief solve the system of equations this * x = b
- * this needs to be a square matrix and target needs to be a column vector
- * this matrix is modified to a triangular upper matrix
- *
- * @param target right hand side of the system of equations
- * @return x - solution to system of equations
- */
-Mat<T> gauss_elim_mut(const Mat<T> &b) {
-  cudla_assert_msg(this->rows_ == this->cols_, "Matrix needs to be square");
-  cudla_assert_msg(b.cols_ == 1, "Target needs to be a vector");
-  cudla_assert_msg(b.rows_ == this->rows_,
-                   "Target rows need to match matrix dimensions");
-
-  std::vector<T> cpybuf(cols_);
-  util::RowPerms perms(rows_);
-  auto b2 = b.clone();
-
-  for (size_t i = 0; i < cols_ - 1; i++) {   // zeroing of i-th column
-    for (size_t n = i + 1; n < rows_; n++) { // row n
-      if ((*this)[i, i] == 0.0) {            // pivot
-        size_t k = 0;
-        for (; (*this)[k, i] == 0.0; k++)
-          ;
-        // swap rows of a
-        this->swap_rows(i, k, cpybuf);
-
-        // swap values in b2
-        double tmp = b2[k, 0];
-        b2(k, 0) = b2[i, 0];
-        b2(i, 0) = tmp;
-
-        // increase permutation count and record permutation
-        perms.add_perm(i, k);
-      }
-      for (size_t j = i + 1; j < cols_; j++) { // column j
-        (*this)(n, j) -= (*this)[n, i] / (*this)[i, i] * (*this)[i, j];
-      }
-      b2(n, 0) -= (*this)[n, i] / (*this)[i, i] * b2[i, 0];
-      (*this)(n, i) = 0.0;
-    }
-  }
-
-  // invertibility check
-  // TODO: check for invertibility of A
-  for (size_t i = 0; i < cols_; i++) {
-    cudla_assert_msg(
-        ((*this)[i, i] != 0.0),
-        "Diagonal of triangular upper version contains zero-element");
-  }
-
-  auto ret = this->back_sub(b2);
-  // for (size_t i = 0; i < cols_; i++) {
-  //   std::cout << perms.order_[i] << ", ";
-  // }
-  // std::cout << "\n";
-
-  // TODO: i need to do something with the permutations here, but for some
-  // reason it seems to be correct???? Why?
   return ret;
 }
 
-std::optional<util::RowPerms> cholesky_decomp_mut() {
-  util::RowPerms perms(rows_);
-  std::vector<T> cpybuf(cols_);
-
-  for (size_t i = 0; i < cols_ - 1; i++) {     // zeroing of i-th column
-    for (size_t n = i + 1; n < rows_; n++) {   // row n
-      for (size_t j = i + 1; j < cols_; j++) { // column j
-        if ((*this)[i, i] == 0.0) {            // pivot
-          size_t k = 0;
-          for (; (*this)[k, i] == 0.0; k++)
-            ;
-          // swap rows of a
-          this->swap_rows(i, k, cpybuf);
-
-          // increase permutation count and record permutation
-          perms.add_perm(i, k);
-        }
-        (*this)(n, j) -= (*this)[n, i] / (*this)[i, i] * (*this)[i, j];
-      }
-      (*this)(n, i) = -(*this)[n, i] / (*this)[i, i];
-    }
-  }
-
-  if (perms.n_swaps_ == 0) {
-    return std::nullopt;
-  }
-
-  return perms;
-}
-
-void row_permute(const util::RowPerms &perms) {
-  if (perms.n_swaps_ == 0)
-    return;
-
-  std::vector<T> cpybuf(cols_);
-
-  size_t performed_perms = 0;
-  for (size_t row = 0; row < rows_; row++) {
-    if (performed_perms == perms.n_swaps_)
-      break;
-
-    if (perms.order_[row] != row) {
-      this->swap_rows(row, perms.order_[row], cpybuf);
-      performed_perms++;
-    }
-  }
-}
-
-Mat<T> lu_forw_sub(const Mat<T> &b) {
-  cudla_assert_msg(rows_ == cols_, "Matrix needs to be square");
-  // TODO: assert tri_lo
-  cudla_assert_msg(cols_ == b.rows(), "Vector rows need to match matrix cols");
-
-  Mat<T> t(rows_, 1);
-  t(0, 0) = b[0, 0];
-  for (size_t i = 1; i < b.rows(); i++) {
-    t(i, 0) = b[i, 0];
-    for (size_t j = 0; j < i; j++) {
-      t(i, 0) += t(j, 0) * (*this)[i, j];
-    }
-  }
-
-  return t;
-}
-
-Mat<T> cholesky_decomp_solv(const Mat<T> &b) {
-  cudla_assert_msg(this->rows_ == this->cols_, "Matrix needs to be square");
-  cudla_assert_msg(b.cols_ == 1, "Target needs to be a vector");
-  cudla_assert_msg(b.rows_ == this->rows_,
-                   "Target rows need to match matrix dimensions");
-
-  // TODO: This is broken
-  std::vector<T> cpybuf(cols_);
-  auto b2 = b.clone();
-
-  const auto perms = this->cholesky_decomp_mut();
-  if (perms.has_value()) {
-    b2.row_permute(perms.value());
-  }
-
-  auto y = this->lu_forw_sub(b);
-
-  return this->back_sub(y);
-}
-
-void print(auto &out) const {
-  for (size_t row = 0; row < rows_; ++row) {
-    for (size_t col = 0; col < cols_; ++col) {
-      const T val = (*this)[row, col];
-      out << std::setw(8) << std::setprecision(3) << val;
-      if (col < cols_ - 1) {
-        out << ", ";
-      }
-    }
-    out << "\n";
-  }
-}
-
-friend std::ostream &operator<<(std::ostream &stream, const Mat<T> &mat) {
+std::ostream &operator<<(std::ostream &stream, const Mat &mat) {
   mat.print(stream);
   return stream;
 }
-}
-} // cudla::sparse
+} // namespace cudla::sparse

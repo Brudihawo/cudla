@@ -1,4 +1,6 @@
 #include "dense.h"
+#include "errors.h"
+#include "vec.h"
 #include <cstddef>
 #include <vector>
 
@@ -10,20 +12,21 @@ void Mat::swap_rows(size_t i, size_t j, std::vector<float> &cpybuf) {
   cudla_assert_msg(i < rows_, "Row out of bounds");
   cudla_assert_msg(j < rows_, "Row out of bounds");
   cudla_assert_msg(i != j, "Cannot swap row with itself");
-  std::copy(vals_.begin() + static_cast<long>(i * cols_),
-            vals_.begin() + static_cast<long>((i + 1) * cols_), cpybuf.begin());
-  std::copy(vals_.begin() + static_cast<long>(j * cols_),
-            vals_.begin() + static_cast<long>((j + 1) * cols_),
-            vals_.begin() + static_cast<long>(i * cols_));
-  std::copy(cpybuf.begin(), cpybuf.end(),
-            vals_.begin() + static_cast<long>(j * cols_));
+  std::copy(vals_ + static_cast<long>(i * cols_),
+            vals_ + static_cast<long>((i + 1) * cols_), cpybuf.begin());
+  std::copy(vals_ + static_cast<long>(j * cols_),
+            vals_ + static_cast<long>((j + 1) * cols_),
+            vals_ + static_cast<long>(i * cols_));
+  std::copy(cpybuf.begin(), cpybuf.end(), vals_ + static_cast<long>(j * cols_));
 }
 
 Mat::Mat(size_t rows, size_t cols)
-    : rows_(rows), cols_(cols), vals_(rows_ * cols_) {}
+    : rows_(rows), cols_(cols), vals_(new float[rows_ * cols_]) {
+  std::fill(vals_, vals_ + (rows_ * cols_), 0.0f);
+}
 
 Mat::Mat(size_t rows, size_t cols, float val)
-    : rows_(rows), cols_(cols), vals_(rows_ * cols_) {
+    : rows_(rows), cols_(cols), vals_(new float[rows_ * cols_]) {
 
   for (size_t i = 0; i < rows_ * cols_; ++i) {
     vals_[i] = val;
@@ -38,7 +41,7 @@ Mat::Mat(size_t rows, size_t cols, float val)
  * @param pred predicate (row, column) -> value for assigning elements
  */
 Mat::Mat(size_t rows, size_t cols, std::function<float(size_t, size_t)> pred)
-    : rows_(rows), cols_(cols), vals_(rows_ * cols_) {
+    : rows_(rows), cols_(cols), vals_(new float[rows_ * cols_]) {
 
   for (size_t row = 0; row < rows_; ++row) {
     for (size_t col = 0; col < cols_; ++col) {
@@ -50,7 +53,7 @@ Mat::Mat(size_t rows, size_t cols, std::function<float(size_t, size_t)> pred)
 Mat Mat::clone_empty() const { return Mat(rows_, cols_); }
 Mat Mat::clone() const {
   Mat ret(rows_, cols_);
-  std::copy(vals_.begin(), vals_.end(), ret.vals_.begin());
+  std::copy(vals_, vals_ + (rows_ * cols_), ret.vals_);
   return ret;
 }
 
@@ -326,8 +329,24 @@ Mat Mat::cholesky_decomp_solv(const Mat &b) {
   return this->back_sub(y);
 }
 
+cudla::dense::Vec operator*(const Mat &mat, const cudla::dense::Vec &vec) {
+  cudla_assert_msg(
+      mat.cols_ == vec.rows,
+      "Matrix columns need to match vector rows for multiplication");
+
+  Vec ret(vec.rows, 0.0f);
+  for (size_t row = 0; row < vec.rows; ++row) {
+    for (size_t col = 0; col < mat.cols_; ++col) {
+      ret(row) += mat[row, col] * vec[row];
+    }
+  }
+
+  return ret;
+}
+
 std::ostream &operator<<(std::ostream &stream, const Mat &mat) {
   mat.print(stream);
   return stream;
 }
+
 } // namespace cudla::dense
