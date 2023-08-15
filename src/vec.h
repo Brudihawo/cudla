@@ -19,7 +19,7 @@ public:
 
   // Accessors
   float operator[](size_t i) const;
-  float& operator()(size_t i);
+  float &operator()(size_t i);
 
   Vec operator-(float s) const;
   void operator-=(float s);
@@ -35,7 +35,7 @@ public:
 
   Vec operator*(float s) const;
   void operator*=(float s);
-  
+
   void normalize();
   void normalized();
 

@@ -158,8 +158,7 @@ bool Mat::operator==(const Mat &o) const {
 bool Mat::structure_eq(const Mat &other) const {
   // TODO: I think this can be optimized. I dont think we have to do all these
   // checks.
-  if (this->cols_ != other.cols_ || 
-      this->rows_ != other.rows_ ||
+  if (this->cols_ != other.cols_ || this->rows_ != other.rows_ ||
       this->n_vals_ != other.n_vals_)
     return false;
 

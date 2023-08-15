@@ -137,14 +137,6 @@ public:
   size_t rows_ = 0, cols_ = 0;
   size_t n_vals_;
 
-  // TODO: manage memory by myself instead of using vector
-  float *vals_;        //< length: n_vals
-  size_t *col_pos_;    //< length: n_vals_
-  size_t *col_sizes_;  //< length: cols_
-  size_t *col_starts_; //< length: cols_
-  size_t *row_starts_; //< length: rows_
-  size_t *row_sizes_;  //< length: rows_
-
   // TODO: do i want a bounds-check here?
   inline bool row_empty(size_t row) const { return row_sizes_[row] == 0; }
 
@@ -154,7 +146,14 @@ public:
   void init_start_arrs();
   size_t col(size_t row, size_t col_idx) const;
   size_t col_or_panic(size_t row, size_t col_idx) const;
+
   static constexpr size_t NOT_PRESENT = SIZE_MAX;
+  float *vals_;        //< length: n_vals
+  size_t *col_pos_;    //< length: n_vals_
+  size_t *col_sizes_;  //< length: cols_
+  size_t *col_starts_; //< length: cols_
+  size_t *row_starts_; //< length: rows_
+  size_t *row_sizes_;  //< length: rows_
 };
 std::optional<size_t> binary_search(const size_t *const arr, size_t size,
                                     size_t val);

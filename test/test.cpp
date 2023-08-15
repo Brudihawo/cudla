@@ -1,7 +1,7 @@
 #include "test.h"
 #include "dense.h"
-#include "dense_solve.cpp"
 #include "dense_basic.cpp"
+#include "dense_solve.cpp"
 #include "sparse_basic.cpp"
 
 int main() {
