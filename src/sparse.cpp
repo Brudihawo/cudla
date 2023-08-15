@@ -532,8 +532,8 @@ cudla::dense::Vec Mat::operator*(const cudla::dense::Vec &o) const {
                    o.rows, ")");
 
   Vec ret(o.rows, 0.0f);
-  for (size_t row = 0; row < ret.rows; ++row) {
-    for (size_t col = 0; col < this->cols_; ++col) {
+  for (size_t col = 0; col < this->cols_; ++col) {
+    for (size_t row = 0; row < ret.rows; ++row) {
       ret(row) += (*this)[row, col] * o[col];
     }
   }

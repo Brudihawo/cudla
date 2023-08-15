@@ -30,7 +30,7 @@
     cudla_assert_(expr);                                                       \
   } while (0)
 #else
-#define cudla_assert_msg(expr, msg) cudla_assert_msg_(expr, msg)
+#define cudla_assert_msg(expr, ...) cudla_assert_msg_(expr, __VA_ARGS__)
 #define cudla_assert(expr) cudla_assert_(expr)
 #endif
 
