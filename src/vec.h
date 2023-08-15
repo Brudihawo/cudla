@@ -1,5 +1,4 @@
 #pragma once
-#include "sparse.h"
 #include <cstddef>
 #include <functional>
 #include <vector>

@@ -1,6 +1,7 @@
 #pragma once
 #include "errors.h"
 #include "permutations.h"
+#include "vec.h"
 #include <iomanip>
 #include <optional>
 #include <vector>
@@ -86,6 +87,10 @@ public:
    *        TODO: implement multiplication into preallocated
    */
   Mat operator*(const Mat &o) const;
+
+  /** @brief Matrix-Vector Multiplication with dense column vector
+   */
+  cudla::dense::Vec operator*(const cudla::dense::Vec& o) const;
 
   /** @brief scale matrix elementwise by scalar
    */

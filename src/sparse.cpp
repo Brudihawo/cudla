@@ -524,6 +524,24 @@ Mat Mat::operator*(const Mat &o) const {
   return ret;
 }
 
+cudla::dense::Vec Mat::operator*(const cudla::dense::Vec &o) const {
+  using cudla::dense::Vec;
+  cudla_assert_msg(o.rows == this->cols_,
+                   "Size mismatch in Matrix-Vector Multiplication. Cannot "
+                   "mutliply Matrix of size (",
+                   this->rows_, "x", this->cols_, ") and Vector of size (1x",
+                   o.rows, ")");
+
+  Vec ret(o.rows, 0.0f);
+  for (size_t row = 0; row < ret.rows; ++row) {
+    for (size_t col = 0; col < this->cols_; ++col) {
+      ret(row) += (*this)[row, col] * o[col];
+    }
+  }
+
+  return ret;
+}
+
 Mat Mat::operator*(float s) const {
   Mat ret = this->clone();
   for (size_t i = 0; i < ret.n_vals_; ++i) {
